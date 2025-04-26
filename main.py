@@ -3,12 +3,14 @@ import json
 import os
 import schedule
 import time
+import psycopg2
 
 # Load ENV variables
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
 BOARD_ID = os.getenv("BOARD_ID")
 MONDAY_USD_COLUMN_ID = os.getenv("MONDAY_USD_COLUMN_ID")
-MONDAY_ITEM_ID = os.getenv("MONDAY_ITEM_ID")
+MONDAY_ITEM_ID = os.getenv("MONDAY_ITEM_ID")  # ახალი გარემოს ცვლადი აითემის ID-სთვის
+DATABASE_URL = os.getenv('DATABASE_URL') # შეიძლება აღარ დაგჭირდეთ, თუ მონაცემთა ბაზას არ იყენებთ
 
 # ეროვნული ბანკის API მისამართი
 NBG_API_URL = "https://nbg.gov.ge/gw/api/ct/monetarypolicy/currencies/en/json/"
@@ -27,7 +29,7 @@ def fetch_usd_rate():
         print(f"Error fetching from NBG API: {response.status_code}")
         return None
 
-def update_monday_item(rate):
+def update_monday_item(rate, item_id):
     url = "https://api.monday.com/v2"
     headers = {
         "Authorization": MONDAY_API_TOKEN,
@@ -42,7 +44,7 @@ def update_monday_item(rate):
     """
     variables = {
         "boardId": int(BOARD_ID),
-        "itemId": int(MONDAY_ITEM_ID),
+        "itemId": int(item_id),
         "columnId": MONDAY_USD_COLUMN_ID,
         "columnValue": json.dumps(str(rate))
     }
@@ -52,19 +54,21 @@ def update_monday_item(rate):
     }
     response = requests.post(url, headers=headers, json=data)
     if response.status_code == 200:
-        print(f"Successfully updated item {MONDAY_ITEM_ID} with rate {rate} on column {MONDAY_USD_COLUMN_ID}")
+        print(f"Successfully updated item {item_id} with rate {rate} on column {MONDAY_USD_COLUMN_ID}")
     else:
-        print(f"Error updating item {MONDAY_ITEM_ID} on Monday.com: {response.status_code} - {response.text}")
+        print(f"Error updating item {item_id} on Monday.com: {response.status_code} - {response.text}")
 
 def job():
     rate = fetch_usd_rate()
-    if rate:
-        update_monday_item(rate)
+    if rate and MONDAY_ITEM_ID:  # დარწმუნდით, რომ MONDAY_ITEM_ID მითითებულია
+        update_monday_item(rate, MONDAY_ITEM_ID)
+    elif not MONDAY_ITEM_ID:
+        print("MONDAY_ITEM_ID გარემოს ცვლადი არ არის მითითებული.")
     else:
         print("No rate found.")
 
 if __name__ == "__main__":
-    schedule.every(10).minutes.do(job)
+    schedule.every(15).seconds.do(job)
 
     while True:
         schedule.run_pending()
