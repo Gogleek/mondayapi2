@@ -34,15 +34,15 @@ def update_monday_item(rate, item_id):
         "Content-Type": "application/json"
     }
     query = """
-    mutation ($itemId: Int!, $columnId: String!, $columnValue: JSON!) {
+    mutation ($itemId: ID!, $boardId: ID!, $columnId: String!, $columnValue: JSON!) {
       change_column_value(item_id: $itemId, board_id: $boardId, column_id: $columnId, value: $columnValue) {
         id
       }
     }
     """
     variables = {
-        "boardId": int(BOARD_ID),
-        "itemId": int(item_id),
+        "boardId": str(BOARD_ID),
+        "itemId": str(item_id),
         "columnId": MONDAY_USD_COLUMN_ID,
         "columnValue": json.dumps(str(rate))
     }
@@ -58,10 +58,16 @@ def update_monday_item(rate, item_id):
 
 def job():
     rate = fetch_usd_rate()
-    if rate and MONDAY_ITEM_ID:
+    if rate and MONDAY_ITEM_ID and BOARD_ID and MONDAY_USD_COLUMN_ID and MONDAY_API_TOKEN:
         update_monday_item(rate, MONDAY_ITEM_ID)
     elif not MONDAY_ITEM_ID:
         print("MONDAY_ITEM_ID გარემოს ცვლადი არ არის მითითებული.")
+    elif not BOARD_ID:
+        print("BOARD_ID გარემოს ცვლადი არ არის მითითებული.")
+    elif not MONDAY_USD_COLUMN_ID:
+        print("MONDAY_USD_COLUMN_ID გარემოს ცვლადი არ არის მითითებული.")
+    elif not MONDAY_API_TOKEN:
+        print("MONDAY_API_TOKEN გარემოს ცვლადი არ არის მითითებული.")
     else:
         print("No rate found.")
 
