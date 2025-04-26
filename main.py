@@ -3,14 +3,14 @@ import json
 import os
 import schedule
 import time
+from flask import Flask
 
-# Load ENV variables
+app = Flask(__name__)
+
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
 BOARD_ID = os.getenv("BOARD_ID")
 MONDAY_USD_COLUMN_ID = os.getenv("MONDAY_USD_COLUMN_ID")
 MONDAY_ITEM_ID = os.getenv("MONDAY_ITEM_ID")
-
-# ეროვნული ბანკის API მისამართი
 NBG_API_URL = "https://nbg.gov.ge/gw/api/ct/monetarypolicy/currencies/en/json/"
 
 def fetch_usd_rate():
@@ -71,9 +71,20 @@ def job():
     else:
         print("No rate found.")
 
-if __name__ == "__main__":
-    schedule.every(15).seconds.do(job)
+schedule.every(15).seconds.do(job)
 
+def run_scheduler():
     while True:
         schedule.run_pending()
         time.sleep(1)
+
+@app.route('/')
+def hello():
+    return "App is running!"
+
+if __name__ == "__main__":
+    import threading
+    scheduler_thread = threading.Thread(target=run_scheduler)
+    scheduler_thread.daemon = True
+    scheduler_thread.start()
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
