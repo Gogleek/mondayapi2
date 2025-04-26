@@ -71,7 +71,7 @@ def job():
     else:
         print("No rate found.")
 
-schedule.every(15).seconds.do(job)
+schedule.every(1).minutes.do(job)
 
 def run_scheduler():
     while True:
