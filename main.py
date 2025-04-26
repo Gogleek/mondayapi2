@@ -3,14 +3,12 @@ import json
 import os
 import schedule
 import time
-import psycopg2
 
 # Load ENV variables
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
 BOARD_ID = os.getenv("BOARD_ID")
 MONDAY_USD_COLUMN_ID = os.getenv("MONDAY_USD_COLUMN_ID")
-MONDAY_ITEM_ID = os.getenv("MONDAY_ITEM_ID")  # ახალი გარემოს ცვლადი აითემის ID-სთვის
-DATABASE_URL = os.getenv('DATABASE_URL') # შეიძლება აღარ დაგჭირდეთ, თუ მონაცემთა ბაზას არ იყენებთ
+MONDAY_ITEM_ID = os.getenv("MONDAY_ITEM_ID")
 
 # ეროვნული ბანკის API მისამართი
 NBG_API_URL = "https://nbg.gov.ge/gw/api/ct/monetarypolicy/currencies/en/json/"
@@ -60,7 +58,7 @@ def update_monday_item(rate, item_id):
 
 def job():
     rate = fetch_usd_rate()
-    if rate and MONDAY_ITEM_ID:  # დარწმუნდით, რომ MONDAY_ITEM_ID მითითებულია
+    if rate and MONDAY_ITEM_ID:
         update_monday_item(rate, MONDAY_ITEM_ID)
     elif not MONDAY_ITEM_ID:
         print("MONDAY_ITEM_ID გარემოს ცვლადი არ არის მითითებული.")
