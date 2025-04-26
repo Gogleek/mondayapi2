@@ -4,30 +4,38 @@ import os
 import schedule
 import time
 from flask import Flask
+import datetime
+import pytz
 
 app = Flask(__name__)
 
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
 BOARD_ID = os.getenv("BOARD_ID")
 MONDAY_USD_COLUMN_ID = os.getenv("MONDAY_USD_COLUMN_ID")
-MONDAY_ITEM_ID = os.getenv("MONDAY_ITEM_ID")
+MONDAY_ITEM_IDS_STR = os.getenv("MONDAY_ITEM_IDS")
+
+ITEM_IDS = [item_id.strip() for item_id in MONDAY_ITEM_IDS_STR.split(',')] if MONDAY_ITEM_IDS_STR else []
+CURRENT_ITEM_INDEX = 0
+
 NBG_API_URL = "https://nbg.gov.ge/gw/api/ct/monetarypolicy/currencies/en/json/"
 
-def fetch_usd_rate():
+def fetch_currency_rate(currency_code):
     response = requests.get(NBG_API_URL)
     if response.status_code == 200:
         data = response.json()
-        usd_rate = None
-        for currency in data[0]['currencies']:
-            if currency['code'] == 'USD':
-                usd_rate = currency['rate']
-                break
-        return usd_rate
+        for currency_data in data[0]['currencies']:
+            if currency_data['code'] == currency_code.upper():
+                return currency_data['rate']
+        print(f"Error: {currency_code} rate not found in NBG API.")
+        return None
     else:
         print(f"Error fetching from NBG API: {response.status_code}")
         return None
 
-def update_monday_item(rate, item_id):
+def fetch_usd_rate():
+    return fetch_currency_rate('USD')
+
+def update_monday_item(rate, item_id, column_id):
     url = "https://api.monday.com/v2"
     headers = {
         "Authorization": MONDAY_API_TOKEN,
@@ -43,40 +51,40 @@ def update_monday_item(rate, item_id):
     variables = {
         "boardId": str(BOARD_ID),
         "itemId": str(item_id),
-        "columnId": MONDAY_USD_COLUMN_ID,
+        "columnId": column_id,
         "columnValue": json.dumps(str(rate))
-    }
-    data = {
-        "query": query,
-        "variables": variables
     }
     response = requests.post(url, headers=headers, json=data)
     if response.status_code == 200:
-        print(f"Successfully updated item {item_id} with rate {rate} on column {MONDAY_USD_COLUMN_ID}")
+        print(f"Successfully updated item {item_id} on column {column_id}")
+        return True
     else:
-        print(f"Error updating item {item_id} on Monday.com: {response.status_code} - {response.text}")
+        error_data = response.json()
+        if "errors" in error_data and any("Item not found" in error["message"] for error in error_data["errors"]):
+            print(f"აითემი ID-ით {item_id} ვერ მოიძებნა.")
+            return False
+        else:
+            print(f"შეცდომა აითემის {item_id}-ის განახლებისას: {response.status_code} - {response.text}")
+            return False
 
 def job():
-    rate = fetch_usd_rate()
-    if rate and MONDAY_ITEM_ID and BOARD_ID and MONDAY_USD_COLUMN_ID and MONDAY_API_TOKEN:
-        update_monday_item(rate, MONDAY_ITEM_ID)
-    elif not MONDAY_ITEM_ID:
-        print("MONDAY_ITEM_ID გარემოს ცვლადი არ არის მითითებული.")
-    elif not BOARD_ID:
-        print("BOARD_ID გარემოს ცვლადი არ არის მითითებული.")
-    elif not MONDAY_USD_COLUMN_ID:
-        print("MONDAY_USD_COLUMN_ID გარემოს ცვლადი არ არის მითითებული.")
-    elif not MONDAY_API_TOKEN:
-        print("MONDAY_API_TOKEN გარემოს ცვლადი არ არის მითითებული.")
-    else:
-        print("No rate found.")
+    global CURRENT_ITEM_INDEX
+    item_id_to_try = ITEM_IDS[CURRENT_ITEM_INDEX % len(ITEM_IDS)] if ITEM_IDS else None
 
-schedule.every(1).minutes.do(job)
+    usd_rate = fetch_usd_rate()
+    if usd_rate and MONDAY_ITEM_IDS_STR and MONDAY_USD_COLUMN_ID and MONDAY_API_TOKEN:
+        update_monday_item(usd_rate, item_id_to_try, MONDAY_USD_COLUMN_ID)
+
+    if ITEM_IDS:
+        CURRENT_ITEM_INDEX = (CURRENT_ITEM_INDEX + 1) % len(ITEM_IDS)
 
 def run_scheduler():
     while True:
-        schedule.run_pending()
-        time.sleep(1)
+        tz_georgia = pytz.timezone('Asia/Tbilisi')
+        now = datetime.datetime.now(tz_georgia).time()
+        if now.hour == 17 and now.minute == 15:
+            job()
+        time.sleep(60) # შემოწმება ყოველ წუთში
 
 @app.route('/')
 def hello():
