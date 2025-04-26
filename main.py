@@ -5,6 +5,7 @@ import os
 # Load ENV variables
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
 BOARD_ID = os.getenv("BOARD_ID")
+MONDAY_USD_COLUMN_ID = os.getenv("MONDAY_USD_COLUMN_ID")
 
 # ეროვნული ბანკის API მისამართი
 NBG_API_URL = "https://nbg.gov.ge/gw/api/ct/monetarypolicy/currencies/en/json/"
@@ -30,17 +31,17 @@ def send_to_monday(rate):
         "Content-Type": "application/json"
     }
     query = """
-    mutation ($boardId: Int!, $itemName: String!, $columnValues: JSON!) {
+    mutation ($boardId: ID!, $itemName: String!, $columnValues: JSON!) {
       create_item(board_id: $boardId, item_name: $itemName, column_values: $columnValues) {
         id
       }
     }
     """
     variables = {
-        "boardId": int(BOARD_ID),
+        "boardId": str(BOARD_ID),
         "itemName": f"USD Rate {rate}",
         "columnValues": json.dumps({
-            "text": str(rate)  # აქ უნდა იყოს შენს ბორდზე არსებული column ID (მაგალითად "text")
+            MONDAY_USD_COLUMN_ID: str(rate)
         })
     }
     data = {
